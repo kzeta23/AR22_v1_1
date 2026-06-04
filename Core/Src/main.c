@@ -1158,8 +1158,10 @@ void process_dose_ema()
 //	if(alpha_hi_ref > 0.90F)		//maximum average time 10s limit
 //		alpha_hi_ref = 0.90F;
 
-	// apply n/(1-nt)
-	gm_tau_low 	= gmCountLowFiltered / (1 - (gmCountLowFiltered  * 0.0001));
+	// apply n/(1-nt) dead-time correction, with denominator clamp to prevent blow-up
+	float tau_denom = 1.0F - (gmCountLowFiltered * TAULOW);
+	if (tau_denom < 0.1F) tau_denom = 0.1F;		// clamp: avoid divide-by-~0 / runaway dose
+	gm_tau_low = gmCountLowFiltered / tau_denom;
 
 	/* calculate dose rate
 	 * Conversion Factor LND7128	= 1.43
