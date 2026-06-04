@@ -458,6 +458,10 @@ void init_display()
 	//Call initialization sequence for SSD1322
 	SSD1322_API_init();
 
+	// Lower panel drive current for OLED longevity (0xC1: 0xFF max -> 0x80 half).
+	// Halving the drive current markedly slows luminance decay / burn-in.
+	SSD1322_API_set_contrast(0x80);
+
 	//Set frame buffer size in pixels - it is used to avoid writing to memory outside frame buffer
 	//Normally it has to only be done once on initialization, but buffer size is changed near the end of while(1);.
 	set_buffer_size(256, 64);
@@ -591,17 +595,17 @@ void display_alarm()
 	switch(rangeStatus)
 	{
 	case RANGE_LOW:
-		draw_text(tx_buf, "Alarm", 165, 14, 5);		//display 'alarm' when in low range
+		draw_text(tx_buf, "Alarm", 165, 14, 7);		//display 'alarm' when in low range
 		break;
 	case RANGE_HIGH:
-		draw_text(tx_buf, "ALARM", 165, 14, 5);		//display 'ALARM' when in low range
+		draw_text(tx_buf, "ALARM", 165, 14, 7);		//display 'ALARM' when in low range
 		break;
 	}//switch
 
 	for(index_cnt=0; index_cnt<5; index_cnt++)	// display set data
 	{
 		sprintf(buffer, "%d", set_alarm_data[index_cnt]);
-		draw_text(tx_buf, buffer, index_init+index_add*index_cnt, 28, 5);
+		draw_text(tx_buf, buffer, index_init+index_add*index_cnt, 28, 7);
 	}//for
 
 	// setting display mode
@@ -610,11 +614,11 @@ void display_alarm()
 		if((flag_display_set_blanking ^= 1) == 1)	// flashing select position digit
 		{
 			sprintf(buffer, "%d", set_alarm_data[set_alarm_shift]);
-			draw_text(tx_buf, buffer, index_init+index_add*set_alarm_shift, 28, 2);
+			draw_text(tx_buf, buffer, index_init+index_add*set_alarm_shift, 28, 3);
 		}//if
 	}//if
 
-	draw_text(tx_buf, "uSv/h", 215, 28, 5);
+	draw_text(tx_buf, "uSv/h", 215, 28, 7);
 
 	// send a frame buffer to the display
 	send_buffer_to_OLED(tx_buf, 0, 0);
