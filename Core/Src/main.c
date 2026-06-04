@@ -1241,21 +1241,6 @@ void data_monitor_usb()
 //	printf("ah: %.2f, b: %.2f, diff: %.2f, alpha: %.2f\r\n", gmCountHigh_ref, gmCountHighFiltered, gmCountHigh_ref-gmCountHighFiltered, alpha_hi);
 }//void
 
-void data_monitor_ble()	// display Radiation value
-{
-	switch(rangeStatus)
-	{
-	case RANGE_LOW:
-		printf("L%.2f\r\n", gmDoseLow);
-//  		HAL_UART_Transmit(&huart2, (uint8_t*)message, strlen(message), HAL_MAX_DELAY);
-		break;
-	case RANGE_HIGH:
-		printf("H%.2f\r\n", gmDoseHigh);
-		break;
-	}//switch
-
-}//void
-
 void test_gmDoseLow_display()
 {
 		gmDoseLow = gmDoseLow + 0.05F;
@@ -1385,7 +1370,6 @@ int main(void)
 
   while (1)
   {
-  	HAL_IWDG_Refresh(&hiwdg);		// kick the watchdog every main-loop iteration
   	process_switch();
 
 //  	flag_movingAverage = 1;	//set flag
@@ -1397,13 +1381,17 @@ int main(void)
     	process_alarm();
   		process_range_check();
   		process_dose_ema();
-//  		check_no_count();		// check no count for 5sec
-  		data_monitor_ble();			// data transfer to a SmartPhone
+  		data_monitor_usb();			// data transfer to a SmartPhone
   	}//if
 
   	if(tick_0_2sec == 1)						//every 0.2s
   	{
   		tick_0_2sec = 0; 					//clear
+
+  		// Kick the watchdog only here, i.e. only when the 1ms tick source (TIM4) and the
+  		// display path are actually progressing. If ticks stop or display hangs, this
+  		// block stops running -> IWDG (~4s) resets the unit. (200ms period << 4s timeout)
+  		HAL_IWDG_Refresh(&hiwdg);
 
   		if(flag_display_test == 1)			// select display test
   		{
