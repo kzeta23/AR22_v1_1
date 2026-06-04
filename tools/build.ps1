@@ -39,6 +39,7 @@ $lflags = $cpu + @(
   "--specs=nano.specs","--specs=nosys.specs",
   "-u","_printf_float",
   "-Wl,--gc-sections",
+  "-Wl,--no-warn-rwx-segments",
   "-Wl,-Map=$root\build\AR22_LCU_v1_0F.map",
   "-lc","-lm"
 )

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>AR22 LCU 펌웨어 기능 개요</title>
+<style>
+  body { font-family: "Malgun Gothic","맑은 고딕",Segoe UI,sans-serif; color:#1a1a1a;
+         max-width: 900px; margin: 24px auto; padding: 0 16px; line-height: 1.55; }
+  h1 { font-size: 1.9em; border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { font-size: 1.3em; margin-top: 1.6em; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.93em; }
+  th, td { border: 1px solid #999; padding: 5px 9px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px;
+         font-family: Consolas,"D2Coding",monospace; font-size: 0.9em; }
+  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 10px;
+        overflow-x: auto; font-family: Consolas,"D2Coding",monospace; font-size: 0.88em; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #bbb; margin: 10px 0; padding: 4px 14px; color: #555; background:#fafafa; }
+  @media print {
+    body { margin: 0; max-width: none; font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+    table, pre { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>AR22 LCU 펌웨어 기능 개요 (OVERVIEW)</h1>
+
+<blockquote>
+AR22 LCU(Local Control Unit) — 방사선(감마선) 검출·표시·경보 펌웨어<br>
+대상 MCU: <b>STM32F446VET6</b> (Cortex-M4 @100MHz, HSE 8MHz, FPU)
+</blockquote>
+
+<p>이 펌웨어는 이전 제품에서 검증된 코드를 <b>AR22 업그레이드 제품에 재사용</b>하는 것을 목표로 하며,
+검증된 기존 동작을 최대한 보존한다. (작업 규칙: 루트의 <code>CLAUDE.md</code> 참조)</p>
+
+<h2>1. 제품 개요</h2>
+<p>2개의 GM(Geiger-Müller) 튜브로 <b>저선량·고선량 이중 레인지</b>를 측정하고, OLED에 선량을 표시하며,
+설정한 임계값을 초과하면 부저·램프로 경보한다. 설정값(알람 임계값, 변환계수)은 EEPROM에 보존된다.</p>
+
+<h2>2. 측정 체인 (핵심)</h2>
+<table>
+<tr><th>단계</th><th>내용</th></tr>
+<tr><td>펄스 카운트</td><td>저선량 GM → TIM1_ETR(PE7), 고선량 GM → TIM8_ETR(PA0). 외부 펄스를 하드웨어 카운터로 누적</td></tr>
+<tr><td>1초 샘플링</td><td>TIM4 1ms 인터럽트 → 1초마다 카운터를 읽고 0으로 리셋 (<code>HAL_TIM_PeriodElapsedCallback</code>)</td></tr>
+<tr><td>적응형 EMA 필터</td><td><code>process_dose_ema()</code> — 지수이동평균. 변화가 크면 α↑(빠른 응답), 안정되면 α↓(노이즈 억제). 저/고 독립</td></tr>
+<tr><td>선량 환산</td><td>저선량: <code>dose = filtered × conv_factor_low</code> (+ 데드타임 보정 <code>n/(1-nτ)</code>)<br>고선량: <code>dose = filtered × conv_factor_high</code></td></tr>
+<tr><td>변환계수</td><td>저 ≈ 0.601 (LND7128), 고 ≈ 48 (LND71631) — EEPROM 저장·교정 가능</td></tr>
+</table>
+
+<h2>3. 이중 레인지 &amp; 표시</h2>
+<ul>
+<li><b>LOW 레인지</b>: µSv/h ~ 약 1 mSv/h</li>
+<li><b>HIGH 레인지</b>: 1 ~ 100+ mSv/h, 150 mSv/h 초과 시 <b>"OVERLOAD"</b></li>
+<li><b>자동 전환</b>: 기준 1000 µSv/h, ±200 히스테리시스 (<code>process_range_check</code>)</li>
+<li><b>NO COUNT FAIL</b>: 선량 &lt; 0.05 상태가 300초 지속 시 고장 표시</li>
+<li>디스플레이: SSD1322 <b>OLED 256×64</b> (SPI4 + DMA), 값 크기에 따라 폰트/단위 자동 전환(µSv/h ↔ mSv/h)</li>
+</ul>
+
+<h2>4. 경보 기능 (<code>process_alarm</code>)</h2>
+<ul>
+<li><code>alarmThreshold</code> (5자리, µSv/h) — EEPROM 저장</li>
+<li>선량 ≥ 임계값 → <b>부저 ON + 적색 램프 ON</b></li>
+<li><b>ACK</b> 처리: 60초간 부저 음소거(램프 유지) 후 복귀</li>
+<li>레인지별(저/고) 각각 판정</li>
+</ul>
+
+<h2>5. 사용자 인터페이스 (스위치 4개, EXTI)</h2>
+<table>
+<tr><th>스위치</th><th>핀</th><th>기능</th></tr>
+<tr><td>SET</td><td>PE12</td><td>알람설정 진입/저장, C/F 설정 저장</td></tr>
+<tr><td>SHIFT</td><td>PE11</td><td>설정 자리 이동 / C/F 저·고 전환</td></tr>
+<tr><td>UP / DOWN</td><td>PE10 / PE9</td><td>값 증가 / 감소</td></tr>
+</table>
+<ul>
+<li><b>부팅 시 모드 진입</b>: SHIFT 누른 채 부팅 → 데이터 모니터 모드, SET 누른 채 부팅 → C/F 교정 모드</li>
+<li>알람 임계값(5자리)·변환계수(저/고) 편집 후 EEPROM에 저장</li>
+</ul>
+
+<h2>6. 저장소 (EEPROM 24C01 / I2C)</h2>
+<ul>
+<li>용량 128바이트(0x00~0x7F), 8바이트 페이지, I2C 주소 0xA0</li>
+<li>알람 데이터: 주소 <b>0~4</b></li>
+<li>변환계수: 주소 <b>26(저), 27(고)</b></li>
+<li>신뢰성을 위해 읽기/쓰기 2회 수행</li>
+<li>드라이버: <code>MyLib/EEPROM_I2C/</code></li>
+</ul>
+
+<h2>7. 통신 / 로그</h2>
+<ul>
+<li><code>printf</code> → <b>USART1 (115200 bps, STLink VCP)</b> 로 출력</li>
+<li><code>data_monitor_ble()</code> — 1초마다 <code>L&lt;선량&gt;</code> / <code>H&lt;선량&gt;</code> 형식 송신</li>
+<li>USART2(9600, 구 블루투스)는 현재 미사용</li>
+</ul>
+
+<h2>8. 파워온 셀프테스트 (<code>power_on_selftest</code>)</h2>
+<p>부팅 시 1회 실행:</p>
+<ol>
+<li>디스플레이 전체 점등(죽은 픽셀/라인 확인)</li>
+<li>LED1 + LED2 점멸(3회) → LAMP_RED 점멸(3회)</li>
+<li>부저 2회 비프(TIM5 PWM)</li>
+<li>EEPROM 존재 확인 + 미사용 셀(0x7F)에 쓰기/읽기/검증 후 원복 → 화면에 <code>EEPROM OK/FAIL</code>
+(FAIL 시 긴 비프 3회 경고 후 계속 진행)</li>
+</ol>
+
+<h2>9. 메인 루프 구조</h2>
+<pre><code>while(1):
+  process_switch()        // 항상: 버튼 처리
+  매 1.0초: process_alarm → process_range_check → process_dose_ema → data_monitor_ble
+  매 0.2초: 화면 갱신 (정상 / 데이터모니터 / C-F 중 택1)</code></pre>
+
+<h2>10. 주변장치 맵</h2>
+<table>
+<tr><th>기능</th><th>자원</th><th>핀</th></tr>
+<tr><td>저선량 카운트</td><td>TIM1_ETR</td><td>PE7</td></tr>
+<tr><td>고선량 카운트</td><td>TIM8_ETR</td><td>PA0</td></tr>
+<tr><td>타임베이스</td><td>TIM4 (1ms IT)</td><td>—</td></tr>
+<tr><td>OLED</td><td>SPI4 + DMA2_Stream1</td><td>PE2(SCL)/PE6(SI), PE4(CS)/PB9(DC)/PE0(RST)</td></tr>
+<tr><td>EEPROM</td><td>I2C1</td><td>PB6(SCL)/PB7(SDA), PB5(WP)</td></tr>
+<tr><td>부저</td><td>TIM5_CH2 PWM (~3.7kHz)</td><td>PA1</td></tr>
+<tr><td>디버그 로그</td><td>USART1</td><td>PA9(TX)/PA10(RX)</td></tr>
+<tr><td>스위치</td><td>EXTI9_5 / EXTI15_10</td><td>PE9~PE12</td></tr>
+<tr><td>LED / 램프</td><td>GPIO</td><td>PA2(LED1), PA3(LED2), PD3(LAMP_RED)</td></tr>
+<tr><td>(미사용) ETH SPI</td><td>SPI1</td><td>PA5~PA7, PA4(CS)</td></tr>
+</table>
+
+<h2>11. 빌드 / 플래싱</h2>
+<p>STM32CubeIDE 없이 ARM GNU Toolchain으로 빌드한다.</p>
+<ul>
+<li>VS Code: <b>Ctrl+Shift+B</b> = <code>Build + Flash</code> (<code>.vscode/tasks.json</code>)</li>
+<li>스크립트: <code>tools/build.ps1</code>(빌드), <code>tools/flash.ps1</code>(플래싱, 다중 ST-Link 중 타깃 자동 선택)</li>
+<li>산출물: <code>build/AR22_LCU_v1_0F.elf/.hex/.bin/.map</code></li>
+<li>코어 옵션: Cortex-M4, FPU <code>fpv4-sp-d16</code>(hard), <code>-mthumb</code>, 정의 <code>STM32F446xx</code>/<code>USE_HAL_DRIVER</code>, 링커 <code>STM32F446VETX_FLASH.ld</code></li>
+</ul>
+
+<h2>12. 변경 이력 (원본 베이스라인 대비)</h2>
+<ul>
+<li>EEPROM <b>SPI(M95010) → I2C(24C01)</b> 마이그레이션</li>
+<li><code>printf</code> 로그 출력 <b>USART2 → USART1</b></li>
+<li>부저 구동 <b>GPIO on/off → TIM5_CH2 PWM 톤</b></li>
+<li><b>파워온 셀프테스트</b> 추가 (디스플레이/LED/부저/EEPROM)</li>
+<li><code>.ioc</code>에서 제거된 핀 정리: GM_SW_HI/LO, LAMP_GREEN, SW_ACK, PC6(TIM3)</li>
+</ul>
+
+</body>
+</html>

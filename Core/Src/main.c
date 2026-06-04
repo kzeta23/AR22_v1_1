@@ -59,6 +59,8 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+IWDG_HandleTypeDef hiwdg;
+
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi4;
 DMA_HandleTypeDef hdma_spi4_tx;
@@ -106,11 +108,10 @@ float alpha_hi = 0.2;						// ema parameter
 float alpha_lo_ref = 0.4;						// ema low ref parameter
 float alpha_hi_ref = 0.4;						// ema high ref parameter
 
-//Dose rate
-//#define GM_LOW_CONV_FACTOR 	0.556F			//Conversion Factor LND7128 = 0.556
+//Conversion Factor
 #define GM_LOW_CONV_FACTOR 	0.601F			//Conversion Factor LND7128 = 0.556
-//#define GM_HIGH_CONV_FACTOR 50.000F			//Conversion Factor LND71631	= 0.05mSv/h/cps
 #define GM_HIGH_CONV_FACTOR 48.000F			//Conversion Factor LND71631	= 0.05mSv/h/cps,     240418 KEARI
+#define DEFAULT_ALARM_THRESHOLD 10			//uSv/h, applied when EEPROM alarm data is invalid/unreadable
 
 float conv_factor_low = GM_LOW_CONV_FACTOR;
 float conv_factor_high = GM_HIGH_CONV_FACTOR;
@@ -197,6 +198,7 @@ static void MX_SPI4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 
 void buzzer_on(void);		// defined later; used by power_on_selftest()
@@ -225,7 +227,8 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 /* Used for general interrupts */
 int _write(int file, unsigned char *p, int len)
 {
-	HAL_UART_Transmit_IT(&huart1, p, len);	// printf -> USART1 (STLink VCP, 115200). BLE(USART2) not used.
+	// blocking TX (was _IT, which silently drops data when the UART is BUSY)
+	HAL_UART_Transmit(&huart1, p, len, 100);	// printf -> USART1 (STLink VCP, 115200). BLE(USART2) not used.
 	return len;
 }//int
 
@@ -236,6 +239,8 @@ int _write(int file, unsigned char *p, int len)
 void load_alarm_data()
 {
 	uint8_t ee_cnt = 0;
+	bool valid = true;
+	EepromOperations rd;
 
   EEPROM_I2C_INIT(&hi2c1);
 	HAL_Delay(10);
@@ -243,13 +248,29 @@ void load_alarm_data()
 	// Have to read it twice to load the data properly
 	EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
 	HAL_Delay(10);
-	EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
+	rd = EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
 	HAL_Delay(10);
 
-	for(ee_cnt = 0; ee_cnt < 5; ee_cnt++)				// apply alarm data from Rx Buffer
+	// validate : read must succeed and every digit must be 0~9
+	if(rd != EEPROM_STATUS_COMPLETE) valid = false;
+	for(ee_cnt = 0; ee_cnt < 5; ee_cnt++)
 	{
-		set_alarm_data[ee_cnt] = eeRxBuffer[ee_cnt];
+		if(eeRxBuffer[ee_cnt] > 9) valid = false;
 	}//for
+
+	if(valid)											// apply alarm data from Rx Buffer
+	{
+		for(ee_cnt = 0; ee_cnt < 5; ee_cnt++)
+			set_alarm_data[ee_cnt] = eeRxBuffer[ee_cnt];
+	}//if
+	else												// EEPROM invalid/unreadable -> apply default (DEFAULT_ALARM_THRESHOLD)
+	{
+		set_alarm_data[0] = (DEFAULT_ALARM_THRESHOLD / 10000) % 10;
+		set_alarm_data[1] = (DEFAULT_ALARM_THRESHOLD / 1000) % 10;
+		set_alarm_data[2] = (DEFAULT_ALARM_THRESHOLD / 100) % 10;
+		set_alarm_data[3] = (DEFAULT_ALARM_THRESHOLD / 10) % 10;
+		set_alarm_data[4] = (DEFAULT_ALARM_THRESHOLD) % 10;
+	}//else
 
 	alarmThreshold =														// calculate alarm Threshold data
 			set_alarm_data[0] * 10000 +
@@ -294,13 +315,15 @@ void save_alarm_data()
 
 void load_cf_data()
 {
+	EepromOperations rd;
+
   EEPROM_I2C_INIT(&hi2c1);
 	HAL_Delay(10);
 
 	// Have to read it twice to load the data properly
 	EEPROM_I2C_ReadBuffer(eeRxBuffer, 16, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom, 17 is 1page first index
 	HAL_Delay(10);
-	EEPROM_I2C_ReadBuffer(eeRxBuffer, 16, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
+	rd = EEPROM_I2C_ReadBuffer(eeRxBuffer, 16, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
 	HAL_Delay(10);
 
 	t_conv_factor_low  =	eeRxBuffer[ADDRESS_CF_LO] ;		// apply cf data from Rx Buffer & calculate cf low data
@@ -309,14 +332,14 @@ void load_cf_data()
 	conv_factor_low  =  (float)t_conv_factor_low  * 0.01;	// 60 -> 0.60
 	conv_factor_high =  (float)t_conv_factor_high * 1;			// 48 -> 48
 
-	if(conv_factor_low < 0.4 || conv_factor_low > 0.8)
+	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_low < 0.4 || conv_factor_low > 0.8)
 	{
-		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt
+		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt (read fail or out of range)
 	}//if
 
-	if(conv_factor_high < 34 || conv_factor_high > 66)
+	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_high < 34 || conv_factor_high > 66)
 	{
-		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt
+		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt (read fail or out of range)
 	}//if
 
 	HAL_Delay(10);
@@ -984,14 +1007,24 @@ void lamp_alarm()
 		// LAMP_GREEN removed : not assigned in current .ioc
 }//void
 
+static uint8_t buzzer_active = 0;			// guard: avoid redundant PWM start/stop
+
 void buzzer_on()
 {
-		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_2);									// BUZZER ON  (TIM5_CH2 PWM tone on PA1)
+	if(!buzzer_active)
+	{
+		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_2);								// BUZZER ON  (TIM5_CH2 PWM tone on PA1)
+		buzzer_active = 1;
+	}//if
 }//void
 
 void buzzer_off()
 {
-		HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_2);									// BUZZER OFF (stop TIM5_CH2 PWM)
+	if(buzzer_active)
+	{
+		HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_2);								// BUZZER OFF (stop TIM5_CH2 PWM)
+		buzzer_active = 0;
+	}//if
 }//void
 
 void process_alarm() // Decision to activate the alarm
@@ -1194,8 +1227,6 @@ void data_monitor_usb()
 
 void data_monitor_ble()	// display Radiation value
 {
-	char message[] = "C 1234.56 1 \r";
-
 	switch(rangeStatus)
 	{
 	case RANGE_LOW:
@@ -1331,8 +1362,14 @@ int main(void)
   load_alarm_data();
   load_cf_data();
 
+  /* Start the independent watchdog AFTER all blocking startup (POST, EEPROM load,
+     and the switch-hold waits in init_display). ~4 s timeout; kicked each loop. */
+  __HAL_DBGMCU_FREEZE_IWDG();		// keep IWDG halted while debugging (no reset on breakpoints)
+  MX_IWDG_Init();
+
   while (1)
   {
+  	HAL_IWDG_Refresh(&hiwdg);		// kick the watchdog every main-loop iteration
   	process_switch();
 
 //  	flag_movingAverage = 1;	//set flag
@@ -1453,6 +1490,34 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_64;
+  hiwdg.Init.Reload = 2000;					// ~4.0 s timeout @ LSI 32 kHz (2000 * 64 / 32000)
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
 
 }
 
@@ -2029,6 +2094,10 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+    /* Indicate a fatal fault: blink the red lamp so it is not a silent hang.
+       IRQs are disabled here (no SysTick), so use a busy-wait delay. */
+    HAL_GPIO_TogglePin(LAMP_RED_GPIO_Port, LAMP_RED_Pin);
+    for (volatile uint32_t d = 0; d < 3000000; d++) { __NOP(); }
   }
   /* USER CODE END Error_Handler_Debug */
 }
