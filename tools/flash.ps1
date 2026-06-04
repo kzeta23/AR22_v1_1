@@ -1,6 +1,17 @@
 # Flash build/AR22_LCU_v1_0F.hex to the target via ST-Link (STM32CubeProgrammer CLI).
-# If several ST-Link probes are connected, auto-selects the one that actually
-# reaches an STM32 target. Set $env:STLINK_SN to force a specific probe.
+#
+# Robust probe + connect-mode selection:
+#   - Enumerates every connected ST-Link probe.
+#   - For each probe, tries connect modes in order: UR (Under Reset) then HotPlug.
+#     This board does NOT answer SWD in HotPlug/Normal mode and needs Under Reset,
+#     so UR is tried first; HotPlug is kept as a fallback for other boards.
+#   - The first probe+mode that actually reaches the STM32 target is used to program,
+#     and the SAME mode is used for the download (plain Normal mode fails on this board).
+#   - Set $env:STLINK_SN to force a specific probe (it is still mode-probed UR->HotPlug).
+#
+# NOTE on this rig: two STLINK-V3MINIE probes are present and USB enumeration is flaky
+# (often only one shows in --list at a time). Trying all listed SNs + UR handles the
+# common case. If the wrong probe is the only one enumerated, replug or set $env:STLINK_SN.
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 
@@ -13,30 +24,41 @@ if (-not (Test-Path $cli)) {
 $hex = "$root\build\AR22_LCU_v1_0F.hex"
 if (-not (Test-Path $hex)) { throw "$hex not found - build first" }
 
-$targetSN = $null
+# Connect modes to try, in priority order. UR works on this board; HotPlug is a fallback.
+$modes = @('UR', 'HotPlug')
+
+# --- Build the candidate probe SN list ---
+$sns = @()
 if ($env:STLINK_SN) {
-  $targetSN = $env:STLINK_SN
-  Write-Host "Using ST-Link SN from STLINK_SN: $targetSN"
+  $sns = @($env:STLINK_SN)
+  Write-Host "Using ST-Link SN from STLINK_SN: $($env:STLINK_SN)"
 } else {
   # NOTE: do not use '2>&1' on the native exe in Windows PowerShell 5.1 (it mangles stdout).
   $listOut = (& $cli --list | Out-String)
-  $sns = @()
   foreach ($m in [regex]::Matches($listOut, 'ST-LINK SN\s*:\s*(\S+)')) { $sns += $m.Groups[1].Value }
   $sns = $sns | Select-Object -Unique
   if ($sns.Count -eq 0) { throw "No ST-Link probe detected. Connect the probe wired to the board's SWD." }
-
-  foreach ($sn in $sns) {
-    Write-Host "Checking probe $sn for an STM32 target..."
-    & $cli -c port=SWD mode=Hotplug sn=$sn | Out-Null
-    if ($LASTEXITCODE -eq 0) { $targetSN = $sn; break }
-  }
-  if (-not $targetSN) {
-    throw ("Connected probe(s) [{0}] cannot reach an STM32 target via SWD. " -f ($sns -join ', ')) +
-          "Connect the ST-Link that is wired to the board's SWD, or set `$env:STLINK_SN."
-  }
-  Write-Host "Selected ST-Link SN: $targetSN"
+  Write-Host ("Detected ST-Link probe(s): {0}" -f ($sns -join ', '))
 }
 
-& $cli -c port=SWD freq=4000 sn=$targetSN -d $hex -v -rst
+# --- Find a probe+mode that actually reaches an STM32 target ---
+$targetSN   = $null
+$targetMode = $null
+foreach ($sn in $sns) {
+  foreach ($mode in $modes) {
+    Write-Host "Trying probe $sn  mode=$mode ..."
+    & $cli -c port=SWD mode=$mode freq=4000 sn=$sn | Out-Null
+    if ($LASTEXITCODE -eq 0) { $targetSN = $sn; $targetMode = $mode; break }
+  }
+  if ($targetSN) { break }
+}
+if (-not $targetSN) {
+  throw ("No connected probe reached an STM32 target (tried SNs [{0}], modes [{1}]). " -f ($sns -join ', '), ($modes -join ', ')) +
+        "Check SWD wiring/power, connect the ST-Link wired to the board's SWD, or set `$env:STLINK_SN."
+}
+Write-Host "Selected ST-Link SN: $targetSN  (connect mode: $targetMode)"
+
+# --- Program + verify + reset, using the mode that connected ---
+& $cli -c port=SWD freq=4000 sn=$targetSN mode=$targetMode -d $hex -v -rst
 if ($LASTEXITCODE -ne 0) { throw "Flash failed (CLI exit $LASTEXITCODE)" }
 Write-Host "Flash OK"
