@@ -166,20 +166,20 @@ uint8_t eeTxBuffer[EEPROM_BUFFER_SIZE];
 //uart
 uint8_t testBuffer[32] = "Program Start...\r\n";
 
-//about switch buttons
-bool flag_SW_SET = 0;
-bool flag_SW_SHIFT = 0;
-bool flag_SW_UP = 0;
-bool flag_SW_DOWN = 0;
-bool flag_SW_ACK = 0;
+//about switch buttons (written in HAL_GPIO_EXTI_Callback ISR -> volatile)
+volatile bool flag_SW_SET = 0;
+volatile bool flag_SW_SHIFT = 0;
+volatile bool flag_SW_UP = 0;
+volatile bool flag_SW_DOWN = 0;
+volatile bool flag_SW_ACK = 0;
 
-//about time tick
-bool tick_0_1sec = 0;
-bool tick_0_2sec = 0;
-bool tick_0_5sec = 0;
-bool tick_1_0sec = 0;
+//about time tick (written in HAL_TIM_PeriodElapsedCallback ISR -> volatile)
+volatile bool tick_0_1sec = 0;
+volatile bool tick_0_2sec = 0;
+volatile bool tick_0_5sec = 0;
+volatile bool tick_1_0sec = 0;
 
-uint16_t current_avg_time = 0;
+volatile uint16_t current_avg_time = 0;		// incremented in TIM4 ISR, cleared in main
 
 float gm_tau_low = 0;
 /* USER CODE END PV */
