@@ -245,10 +245,10 @@ void load_alarm_data()
   EEPROM_I2C_INIT(&hi2c1);
 	HAL_Delay(10);
 
-	// Have to read it twice to load the data properly
-	EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
+	// alarm uses addr 0-4 only; read just those 5 bytes. Read twice for reliability.
+	EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, 5);	//load alarm data (addr 0-4)
 	HAL_Delay(10);
-	rd = EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
+	rd = EEPROM_I2C_ReadBuffer(eeRxBuffer, 0, 5);	//load alarm data (addr 0-4)
 	HAL_Delay(10);
 
 	// validate : read must succeed and every digit must be 0~9
@@ -305,10 +305,11 @@ void save_alarm_data()
 			set_alarm_data[3] * 10 +
 			set_alarm_data[4];
 
-	// Have to write it twice to load the data properly
-	EEPROM_I2C_WriteBuffer(eeTxBuffer, 0, EEPROM_BUFFER_SIZE);	//write alarm data to eeprom
+	// alarm uses addr 0-4 only; write just those 5 bytes (24C01 byte/partial write).
+	// addr 0-4 are within page 0, so a single 5-byte write is fine. Twice for reliability.
+	EEPROM_I2C_WriteBuffer(eeTxBuffer, 0, 5);	//write alarm data (addr 0-4)
 	HAL_Delay(10);
-	EEPROM_I2C_WriteBuffer(eeTxBuffer, 0, EEPROM_BUFFER_SIZE);	//write alarm data to eeprom
+	EEPROM_I2C_WriteBuffer(eeTxBuffer, 0, 5);	//write alarm data (addr 0-4)
 	HAL_Delay(10);
 
 }//void
@@ -320,10 +321,11 @@ void load_cf_data()
   EEPROM_I2C_INIT(&hi2c1);
 	HAL_Delay(10);
 
-	// Have to read it twice to load the data properly
-	EEPROM_I2C_ReadBuffer(eeRxBuffer, 16, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom, 17 is 1page first index
+	// c/f uses addr 26,27 only; read just those 2 bytes into eeRxBuffer[10],[11]
+	// (= ADDRESS_CF_LO,_HI), keeping the indexing below unchanged. Read twice for reliability.
+	EEPROM_I2C_ReadBuffer(&eeRxBuffer[ADDRESS_CF_LO], 16 + ADDRESS_CF_LO, 2);	//load c/f data (addr 26,27)
 	HAL_Delay(10);
-	rd = EEPROM_I2C_ReadBuffer(eeRxBuffer, 16, EEPROM_BUFFER_SIZE);	//load alarm data from eeprom
+	rd = EEPROM_I2C_ReadBuffer(&eeRxBuffer[ADDRESS_CF_LO], 16 + ADDRESS_CF_LO, 2);	//load c/f data (addr 26,27)
 	HAL_Delay(10);
 
 	t_conv_factor_low  =	eeRxBuffer[ADDRESS_CF_LO] ;		// apply cf data from Rx Buffer & calculate cf low data
@@ -369,10 +371,14 @@ void save_cf_data()
 		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt
 	}//if
 
-	// Have to write it twice to load the data properly
-	EEPROM_I2C_WriteBuffer(eeTxBuffer, 16, EEPROM_BUFFER_SIZE);	//write alarm data to eeprom
+	// 24C01 supports byte/partial writes, so write only the 2 c/f bytes (EEPROM addr 26,27)
+	// instead of the whole 16-byte block. Avoids wearing/clobbering unused cells and
+	// stops stale eeTxBuffer contents from being written to addr 16-25,28-31.
+	// addr 26,27 are in the same 8-byte page (24-31), so a single 2-byte write is fine.
+	// Written twice for reliability (matches the read-twice in load_cf_data).
+	EEPROM_I2C_WriteBuffer(&eeTxBuffer[ADDRESS_CF_LO], 16 + ADDRESS_CF_LO, 2);	//write c/f data (addr 26,27)
 	HAL_Delay(10);
-	EEPROM_I2C_WriteBuffer(eeTxBuffer, 16, EEPROM_BUFFER_SIZE);	//write alarm data to eeprom
+	EEPROM_I2C_WriteBuffer(&eeTxBuffer[ADDRESS_CF_LO], 16 + ADDRESS_CF_LO, 2);	//write c/f data (addr 26,27)
 	HAL_Delay(10);
 
 }//void
