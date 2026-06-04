@@ -758,9 +758,13 @@ void display_dose()	// display Radiation value
 	display_alarm();
 }//void
 
+// NOTE: side-effect + LOW-range only. Besides detecting "no count", this also
+//       clamps gmDoseLow to a 0.05 floor (minimum displayed dose). It inspects
+//       only gmDoseLow; the NO COUNT FAIL flag is shown in the LOW-range display
+//       and data monitor, NOT in the HIGH-range display.
 void check_no_count()
 {
-	if(gmDoseLow < 0.05F)		// if below 0.15, display minimum dose
+	if(gmDoseLow < 0.05F)		// if below 0.05, display minimum dose (floor)
 	{
 		gmDoseLow = 0.05F;
 
