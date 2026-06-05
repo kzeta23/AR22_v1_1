@@ -197,8 +197,8 @@ static void MX_USART1_UART_Init(void);
 static void MX_SPI4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_IWDG_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 void buzzer_on(void);		// defined later; used by power_on_selftest()
@@ -1324,6 +1324,7 @@ int main(void)
   MX_SPI4_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
+  MX_IWDG_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
@@ -1434,8 +1435,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -1514,7 +1516,7 @@ static void MX_IWDG_Init(void)
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
   hiwdg.Init.Prescaler = IWDG_PRESCALER_64;
-  hiwdg.Init.Reload = 2000;					// ~4.0 s timeout @ LSI 32 kHz (2000 * 64 / 32000)
+  hiwdg.Init.Reload = 2000;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
   {
     Error_Handler();
@@ -2052,11 +2054,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 			tick_1_0sec = 1;
 
-			gmCountLow = __HAL_TIM_GET_COUNTER(&htim1);		//get gm low count value
-			__HAL_TIM_SetCounter(&htim1, 0);							//init counter
-
-			gmCountHigh = __HAL_TIM_GET_COUNTER(&htim8);	//get gm high count value
+			// GM channels swapped (wiring + labels): LOW tube now on PA0/TIM8, HIGH tube on PE7/TIM1.
+			// So read the LOW count from TIM8 and the HIGH count from TIM1 (swapped vs original).
+			gmCountLow = __HAL_TIM_GET_COUNTER(&htim8);		//get gm low count value  (PA0 / TIM8)
 			__HAL_TIM_SetCounter(&htim8, 0);							//init counter
+
+			gmCountHigh = __HAL_TIM_GET_COUNTER(&htim1);	//get gm high count value (PE7 / TIM1)
+			__HAL_TIM_SetCounter(&htim1, 0);							//init counter
 
 			current_avg_time++;					//increase average time every 1sec
 		}//if

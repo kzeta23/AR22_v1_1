@@ -304,12 +304,12 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /**TIM1 GPIO Configuration
     PE7     ------> TIM1_ETR
     */
-    GPIO_InitStruct.Pin = GM_COUNT_LO_Pin;
+    GPIO_InitStruct.Pin = GM_COUNT_HI_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
-    HAL_GPIO_Init(GM_COUNT_LO_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(GM_COUNT_HI_GPIO_Port, &GPIO_InitStruct);
 
     /* USER CODE BEGIN TIM1_MspInit 1 */
 
@@ -363,12 +363,12 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /**TIM8 GPIO Configuration
     PA0-WKUP     ------> TIM8_ETR
     */
-    GPIO_InitStruct.Pin = GM_COUNT_HI_Pin;
+    GPIO_InitStruct.Pin = GM_COUNT_LO_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF3_TIM8;
-    HAL_GPIO_Init(GM_COUNT_HI_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(GM_COUNT_LO_GPIO_Port, &GPIO_InitStruct);
 
     /* USER CODE BEGIN TIM8_MspInit 1 */
 
@@ -422,7 +422,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     /**TIM1 GPIO Configuration
     PE7     ------> TIM1_ETR
     */
-    HAL_GPIO_DeInit(GM_COUNT_LO_GPIO_Port, GM_COUNT_LO_Pin);
+    HAL_GPIO_DeInit(GM_COUNT_HI_GPIO_Port, GM_COUNT_HI_Pin);
 
     /* USER CODE BEGIN TIM1_MspDeInit 1 */
 
@@ -475,7 +475,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     /**TIM8 GPIO Configuration
     PA0-WKUP     ------> TIM8_ETR
     */
-    HAL_GPIO_DeInit(GM_COUNT_HI_GPIO_Port, GM_COUNT_HI_Pin);
+    HAL_GPIO_DeInit(GM_COUNT_LO_GPIO_Port, GM_COUNT_LO_Pin);
 
     /* USER CODE BEGIN TIM8_MspDeInit 1 */
 

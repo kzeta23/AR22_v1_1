@@ -65,8 +65,8 @@ void Error_Handler(void);
 #define LCD_CS_GPIO_Port GPIOE
 #define LCD_SI_Pin GPIO_PIN_6
 #define LCD_SI_GPIO_Port GPIOE
-#define GM_COUNT_HI_Pin GPIO_PIN_0
-#define GM_COUNT_HI_GPIO_Port GPIOA
+#define GM_COUNT_LO_Pin GPIO_PIN_0
+#define GM_COUNT_LO_GPIO_Port GPIOA
 #define BUZZER_Pin GPIO_PIN_1
 #define BUZZER_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_2
@@ -86,8 +86,8 @@ void Error_Handler(void);
 #define ETH_INT_Pin GPIO_PIN_5
 #define ETH_INT_GPIO_Port GPIOC
 #define ETH_INT_EXTI_IRQn EXTI9_5_IRQn
-#define GM_COUNT_LO_Pin GPIO_PIN_7
-#define GM_COUNT_LO_GPIO_Port GPIOE
+#define GM_COUNT_HI_Pin GPIO_PIN_7
+#define GM_COUNT_HI_GPIO_Port GPIOE
 #define SW_DOWN_Pin GPIO_PIN_9
 #define SW_DOWN_GPIO_Port GPIOE
 #define SW_DOWN_EXTI_IRQn EXTI9_5_IRQn

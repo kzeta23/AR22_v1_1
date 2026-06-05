@@ -153,8 +153,8 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="MyLib/EEPROM_I2C"/>
 						<entry excluding="Src/main240607F.c|Src/main240531F.c|Src/main240528F.c|Src/main240510.c|Src/main__.c|Src/main_.c|Src/main240411_Final.c|Src/main231015_Final.c|Src/main231015_test.c|Src/main231012_test.c|Src/main230822.c|Src/main231006_Alarm.c|Src/main230922_func.c|Src/main230918_func_f.c|Src/main230919_divide.c|Src/main230915_func_f.c|Src/main230914_low_f.c|Src/main230827_ema_f.c|Src/main230914_f_low.c|Src/main230913_test.c|Src/main230827_ema2_final.c|Src/main230822_ema.c|Src/main230818.c|Src/main230817.c|Src/main230816.c|Src/main230807.c|Src/main230716.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="MyLib/EEPROM_I2C"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 					</sourceEntries>
 				</configuration>
