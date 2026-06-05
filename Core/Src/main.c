@@ -1324,7 +1324,11 @@ int main(void)
   MX_SPI4_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
-  MX_IWDG_Init();
+  /* NOTE: MX_IWDG_Init() must NOT run here. The watchdog has to start only AFTER the
+     long blocking startup (init_display switch-waits, power_on_selftest ~3.5s, EEPROM
+     loads); otherwise it resets during POST -> boot loop. It is started later, just
+     before the main loop. If CubeMX regenerates this block and re-adds MX_IWDG_Init()
+     here, delete it again. */
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
