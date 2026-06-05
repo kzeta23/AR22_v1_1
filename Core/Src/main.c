@@ -108,6 +108,16 @@ float alpha_hi = 0.2;						// ema parameter
 float alpha_lo_ref = 0.4;						// ema low ref parameter
 float alpha_hi_ref = 0.4;						// ema high ref parameter
 
+// Low-range adaptive-EMA tuning (background-stability vs response trade-off).
+// At low background (~0.45 cps) raw counts are 0/1/2 per sec; that Poisson noise makes the
+// fast ref-EMA jitter, keeping |ref-filtered| above 0 and pinning alpha_lo well above its
+// floor -> the display wobbles. EMA_DEADBAND_LOW ignores divergence below this many cps
+// (treat as noise) so alpha_lo can settle to its floor when truly stable; ALPHA_LO_MIN then
+// sets how long it integrates there. A real dose step gives large divergence -> alpha_lo
+// saturates at its 0.45 max, so step/alarm response is unaffected by these two knobs.
+#define EMA_DEADBAND_LOW	0.08F		// cps; noise deadband on |ref-filtered| (0 = old behaviour)
+#define ALPHA_LO_MIN		0.005F		// alpha_lo floor when stable (was 0.01; lower = longer integration)
+
 //Conversion Factor
 #define GM_LOW_CONV_FACTOR 	0.601F			//Conversion Factor LND7128 = 0.556
 #define GM_HIGH_CONV_FACTOR 48.000F			//Conversion Factor LND71631	= 0.05mSv/h/cps,     240418 KEARI
@@ -1122,12 +1132,17 @@ void process_dose_ema()
 	gmCountLow_ref = gmCountLow_ref_prev * (1.000F - alpha_lo_ref) + (float)gmCountLow * alpha_lo_ref;
 	gmCountLow_ref_prev = gmCountLow_ref;
 
-	// convert average time to ema alpha parameter
-	alpha_lo = 0.150F * sqrt(abs_diff(gmCountLow_ref, gmCountLowFiltered));
+	// convert average time to ema alpha parameter.
+	// Subtract a noise deadband from the ref-vs-filtered divergence so background Poisson
+	// jitter does not keep alpha_lo elevated; clamp negative to 0 before sqrt.
+	float div_lo = abs_diff(gmCountLow_ref, gmCountLowFiltered) - EMA_DEADBAND_LOW;
+	if(div_lo < 0.0F)
+		div_lo = 0.0F;
+	alpha_lo = 0.150F * sqrt(div_lo);
 
 	// set limit, alpha_lo is 0 < alpha_lo < 1
-	if(alpha_lo < 0.01F)		//minimum average time 60s limit, 60sec, minimum 0.017
-		alpha_lo = 0.01F;
+	if(alpha_lo < ALPHA_LO_MIN)		//minimum alpha = longest averaging when stable (background)
+		alpha_lo = ALPHA_LO_MIN;
 	if(alpha_lo > 0.45F)		//maximum average time 1s limit, 10sec
 		alpha_lo = 0.45F;
 
