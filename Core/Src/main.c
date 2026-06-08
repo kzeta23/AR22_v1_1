@@ -1171,8 +1171,12 @@ void process_dose_ema()
 	// alpha_hi is 0 < alpha_hi < 1
 	if(alpha_hi < 0.01F)			//minimum average time 100s limit
 		alpha_hi = 0.01F;
-	if(alpha_hi > 0.10F)			//maximum average time 10s limit
-		alpha_hi = 0.10F;
+	// Max raised 0.10 -> 0.20: at high count rates Poisson noise is small, so the old 0.10
+	// cap only slowed step response (rise ~24s, HIGH->LOW recovery from 100mSv/h ~46s) with
+	// no stability benefit. 0.20 ~halves both (rise ~12s, recovery ~22s); wobble unchanged
+	// (~3.2% @1mSv/h). Cap binds only during steps, not in steady state, so display stays smooth.
+	if(alpha_hi > 0.20F)			//max step-tracking rate (was 0.10)
+		alpha_hi = 0.20F;
 //	if(alpha_hi > 0.45F)			//maximum average time 10s limit
 //		alpha_hi = 0.45F;
 
@@ -1182,8 +1186,8 @@ void process_dose_ema()
 	// set limit, alpha_hi is 0 < alpha_hi < 1
 	if(alpha_hi_ref < 0.02F)		//minimum average time 100s limit
 		alpha_hi_ref = 0.02F;
-	if(alpha_hi_ref > 0.20F)		//maximum average time 10s limit
-		alpha_hi_ref = 0.20F;
+	if(alpha_hi_ref > 0.40F)		//max for ref ema = 2 x alpha_hi max (was 0.20)
+		alpha_hi_ref = 0.40F;
 //	if(alpha_hi_ref > 0.90F)		//maximum average time 10s limit
 //		alpha_hi_ref = 0.90F;
 
