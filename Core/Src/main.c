@@ -1120,11 +1120,23 @@ float abs_diff(float a, float b) {
 }//float
 
 /* Function to calculate exponential moving average */
+/* Adaptive exponential moving average (EMA) of the 1 s GM counts -> dose rate.
+ * Called once per second (from the 1 s tick). For each range (LOW / HIGH):
+ *   filtered  = EMA of the raw count (smoothing factor alpha)
+ *   reference = faster EMA (alpha_ref ~= 2*alpha), used as a recent-trend reference
+ *   alpha is ADAPTIVE: alpha = k * sqrt(|reference - filtered|), then clamped.
+ *     -> large alpha = fast response while the signal is changing,
+ *        small alpha = long averaging / low Poisson noise when steady.
+ * Then: dead-time correction on the LOW count (n/(1 - n*TAULOW), clamped) and
+ *   dose (uSv/h) = count * conversion factor. LOW uses the corrected count,
+ *   HIGH uses the filtered count. check_no_count() applies the 0.05 uSv/h floor.
+ * Units: counts are cps (per 1 s window); alpha is dimensionless (0..1).
+ */
 void process_dose_ema()
 {
-
 	// get timer count value for moving average
-	//low Range
+
+	//low Range filtered count ema
 	gmCountLowFiltered = gmCountLowFiltered_prev * (1.000F - alpha_lo) + (float)gmCountLow * alpha_lo;
 	gmCountLowFiltered_prev = gmCountLowFiltered;
 
@@ -1155,12 +1167,11 @@ void process_dose_ema()
 	if(alpha_lo_ref > 0.90F)		//maximum average time 1s limit, 10sec
 		alpha_lo_ref = 0.90F;
 
-
-	//high Range///////////////////////////////////////////////////////////////////////////////////////////////////
+	//high Range filtered count ema
 	gmCountHighFiltered = gmCountHighFiltered_prev * (1.000F - alpha_hi) + (float)gmCountHigh * alpha_hi;
 	gmCountHighFiltered_prev = gmCountHighFiltered;
 
-	// low range reference ema
+	// high range reference ema (faster EMA used as the recent-trend reference)
 	gmCountHigh_ref = gmCountHigh_ref_prev * (1.000F - alpha_hi_ref) + (float)gmCountHigh * alpha_hi_ref;
 	gmCountHigh_ref_prev = gmCountHigh_ref;
 
@@ -1180,7 +1191,7 @@ void process_dose_ema()
 //	if(alpha_hi > 0.45F)			//maximum average time 10s limit
 //		alpha_hi = 0.45F;
 
-	// calculate alpha_ref, alpha_ref is twice the value of alpha_lo
+	// reference alpha is twice alpha_hi (faster trend tracker for the HIGH range)
 	alpha_hi_ref = alpha_hi * 2.00F;
 
 	// set limit, alpha_hi is 0 < alpha_hi < 1
@@ -1196,11 +1207,13 @@ void process_dose_ema()
 	if (tau_denom < 0.1F) tau_denom = 0.1F;		// clamp: avoid divide-by-~0 / runaway dose
 	gm_tau_low = gmCountLowFiltered / tau_denom;
 
-	/* calculate dose rate
-	 * Conversion Factor LND7128	= 1.43
-	 * Conversion Factor LND7132	= 0.556
-	 * Conversion Factor LND71631 = 53.625
-	*/
+	/* dose rate (uSv/h) = count * conversion factor.
+	 * LOW  : dead-time-corrected count (gm_tau_low)      x conv_factor_low  (EEPROM, default 0.601)
+	 * HIGH : filtered count (gmCountHighFiltered)        x conv_factor_high (EEPROM, default 48)
+	 * The factors below are reference values for OTHER tubes, kept as notes only:
+	 *   Conversion Factor LND7128  = 1.43
+	 *   Conversion Factor LND71631 = 53.625
+	 */
 	gmDoseLow 	= gm_tau_low  * conv_factor_low;
 	gmDoseHigh 	= gmCountHighFiltered * conv_factor_high;
 
