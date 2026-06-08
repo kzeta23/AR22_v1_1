@@ -119,8 +119,8 @@ float alpha_hi_ref = 0.4;						// ema high ref parameter
 #define ALPHA_LO_MIN		0.005F		// alpha_lo floor when stable (was 0.01; lower = longer integration)
 
 //Conversion Factor
-#define GM_LOW_CONV_FACTOR 	0.601F			//Conversion Factor LND7128 = 0.556
-#define GM_HIGH_CONV_FACTOR 48.000F			//Conversion Factor LND71631	= 0.05mSv/h/cps,     240418 KEARI
+#define GM_LOW_CONV_FACTOR 	0.600F			//Conversion Factor LND7128 = 0.600
+#define GM_HIGH_CONV_FACTOR 48.000F			//Conversion Factor LND71631 = 48.00  (0.048mSv/h/cps, 240418 KEARI)
 #define DEFAULT_ALARM_THRESHOLD 10			//uSv/h, applied when EEPROM alarm data is invalid/unreadable
 
 float conv_factor_low = GM_LOW_CONV_FACTOR;
@@ -1208,11 +1208,10 @@ void process_dose_ema()
 	gm_tau_low = gmCountLowFiltered / tau_denom;
 
 	/* dose rate (uSv/h) = count * conversion factor.
-	 * LOW  : dead-time-corrected count (gm_tau_low)      x conv_factor_low  (EEPROM, default 0.601)
-	 * HIGH : filtered count (gmCountHighFiltered)        x conv_factor_high (EEPROM, default 48)
-	 * The factors below are reference values for OTHER tubes, kept as notes only:
-	 *   Conversion Factor LND7128  = 1.43
-	 *   Conversion Factor LND71631 = 53.625
+	 * LOW  : dead-time-corrected count (gm_tau_low)      x conv_factor_low  (EEPROM, default 0.600)
+	 * HIGH : filtered count (gmCountHighFiltered)        x conv_factor_high (EEPROM, default 48.00)
+	 *   Conversion Factor LND7128  = 0.600
+	 *   Conversion Factor LND71631 = 48.00
 	 */
 	gmDoseLow 	= gm_tau_low  * conv_factor_low;
 	gmDoseHigh 	= gmCountHighFiltered * conv_factor_high;
