@@ -3,3 +3,6 @@
 
 # Eclipse / STM32CubeIDE workspace metadata ----------------------------------
 /.metadata/
+
+# Generated IntelliSense DB (machine-specific absolute paths) -----------------
+/compile_commands.json

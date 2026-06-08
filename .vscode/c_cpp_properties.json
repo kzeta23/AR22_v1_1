@@ -1,0 +1,36 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "STM32F446 (GCC ARM)",
+      "includePath": [
+        "${workspaceFolder}/Core/Inc",
+        "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc",
+        "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+        "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+        "${workspaceFolder}/Drivers/CMSIS/Include",
+        "${workspaceFolder}/MyLib",
+        "${workspaceFolder}/MyLib/SSD1322_OLED_lib_NB",
+        "${workspaceFolder}/MyLib/SSD1322_OLED_lib_NB/Fonts",
+        "${workspaceFolder}/MyLib/SSD1322_OLED_lib_NB/Bitmap",
+        "${workspaceFolder}/MyLib/MOVING_AVERAGE",
+        "${workspaceFolder}/MyLib/EEPROM_I2C"
+      ],
+      "defines": [
+        "USE_HAL_DRIVER",
+        "STM32F446xx",
+        "DEBUG"
+      ],
+      "compilerPath": "C:/Program Files (x86)/Arm/GNU Toolchain mingw-w64-i686-arm-none-eabi/bin/arm-none-eabi-gcc.exe",
+      "compilerArgs": [
+        "-mcpu=cortex-m4",
+        "-mfpu=fpv4-sp-d16",
+        "-mfloat-abi=hard",
+        "-mthumb"
+      ],
+      "cStandard": "gnu11",
+      "cppStandard": "gnu++14",
+      "intelliSenseMode": "${default}"
+    }
+  ]
+}
