@@ -1,5 +1,5 @@
 # Build AR22_LCU firmware with the ARM GNU toolchain (no STM32CubeIDE required).
-# Produces build/AR22_LCU_v1_0F.elf/.hex/.bin/.map
+# Produces build/AR22_LCU_v1_1.elf/.hex/.bin/.map
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 
@@ -40,18 +40,18 @@ $lflags = $cpu + @(
   "-u","_printf_float",
   "-Wl,--gc-sections",
   "-Wl,--no-warn-rwx-segments",
-  "-Wl,-Map=$root\build\AR22_LCU_v1_0F.map",
+  "-Wl,-Map=$root\build\AR22_LCU_v1_1.map",
   "-lc","-lm"
 )
 
-$out = "$root\build\AR22_LCU_v1_0F.elf"
+$out = "$root\build\AR22_LCU_v1_1.elf"
 $allargs = $cflags + @("-x","assembler-with-cpp",$startup,"-x","none") + $srcs + @("-o",$out) + $lflags
 
 Write-Host "Building $($srcs.Count) source files..."
 & $gcc @allargs
 if ($LASTEXITCODE -ne 0) { throw "Build failed (gcc exit $LASTEXITCODE)" }
 
-& $oc -O ihex   $out "$root\build\AR22_LCU_v1_0F.hex"
-& $oc -O binary $out "$root\build\AR22_LCU_v1_0F.bin"
+& $oc -O ihex   $out "$root\build\AR22_LCU_v1_1.hex"
+& $oc -O binary $out "$root\build\AR22_LCU_v1_1.bin"
 & $size $out
-Write-Host "Build OK -> build\AR22_LCU_v1_0F.hex"
+Write-Host "Build OK -> build\AR22_LCU_v1_1.hex"

@@ -93,7 +93,7 @@ while(1):
 STM32CubeIDE 없이 ARM GNU Toolchain으로 빌드한다.
 - VS Code: **Ctrl+Shift+B** = `Build + Flash` (`.vscode/tasks.json`)
 - 스크립트: `tools/build.ps1`(빌드), `tools/flash.ps1`(플래싱, 다중 ST-Link 중 타깃 자동 선택)
-- 산출물: `build/AR22_LCU_v1_0F.elf/.hex/.bin/.map`
+- 산출물: `build/AR22_LCU_v1_1.elf/.hex/.bin/.map`
 - 코어 옵션: Cortex-M4, FPU `fpv4-sp-d16`(hard), `-mthumb`, 정의 `STM32F446xx`/`USE_HAL_DRIVER`, 링커 `STM32F446VETX_FLASH.ld`
 
 ## 12. 변경 이력 (원본 베이스라인 대비)

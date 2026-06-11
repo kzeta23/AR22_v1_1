@@ -1,4 +1,4 @@
-# Flash build/AR22_LCU_v1_0F.hex to the target via ST-Link (STM32CubeProgrammer CLI).
+# Flash build/AR22_LCU_v1_1.hex to the target via ST-Link (STM32CubeProgrammer CLI).
 #
 # Robust probe + connect-mode selection:
 #   - Enumerates every connected ST-Link probe.
@@ -21,7 +21,7 @@ if (-not (Test-Path $cli)) {
   if ($found) { $cli = $found.Source } else { throw "STM32_Programmer_CLI not found" }
 }
 
-$hex = "$root\build\AR22_LCU_v1_0F.hex"
+$hex = "$root\build\AR22_LCU_v1_1.hex"
 if (-not (Test-Path $hex)) { throw "$hex not found - build first" }
 
 # Connect modes to try, in priority order. UR works on this board; HotPlug is a fallback.
