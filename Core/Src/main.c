@@ -2,10 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * fix to Change Range bug 240411
-  * main240411_Final.c and main240411.c are same file
+  * @brief          : Main program body for AR22 V1.1
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -1213,6 +1210,8 @@ void process_dose_ema()
 	 *   Conversion Factor LND7128  = 0.600
 	 *   Conversion Factor LND71631 = 48.00
 	 */
+	// conv_factor_low / conv_factor_high are loaded from EEPROM (교정값). 테스트용
+	// 강제 덮어쓰기(conv_factor_low = 6.0F)는 제거됨 — 정상 교정값을 그대로 사용.
 	gmDoseLow 	= gm_tau_low  * conv_factor_low;
 	gmDoseHigh 	= gmCountHighFiltered * conv_factor_high;
 
@@ -1255,21 +1254,34 @@ void process_range_check()
 
 void data_monitor_usb()
 {
-	printf("ref: %05d, ", RANGE_VAL_CENTER);
+	// USB(USART1 VCP, 115200) 진단 로그 : 메인 루프에서 1초 주기로 한 줄 출력.
+	// 구성 : 순번(Seq) + LOW/HIGH 레인지 각각 원시 카운트·필터 카운트·선량률.
+	static uint32_t seq = 0;		// 로그 순번 : 호출마다 +1 (전원/리셋 시 0부터 시작)
 
-	if(rangeStatus == 0)
-		printf("Range: %s, ", "L");
-	else
-		printf("Range: %s, ", "H");
+	seq++;							// 이번 줄의 순번
 
-	printf("CntL: %.2f, CntH: %.2f ", gmCountLowFiltered, gmCountHighFiltered);
+	// 현재 레인지 표시 : process_range_check() 가 갱신한 rangeStatus 기준.
+	//  RANGE_LOW(0) -> "L",  RANGE_HIGH(1) -> "H".  하이/로우 전환 시 이 값이 바뀜.
+	const char *range_str = (rangeStatus == RANGE_LOW) ? "L" : "H";
 
-	printf("tau: %.3f ", gm_tau_low);
-
-	printf("Lo: %.2f, Hi: %.2f\r\n", gmDoseLow, gmDoseHigh);
-
-//	printf("al: %.2f, b: %.2f, diff: %.2f, alpha: %.2f\r\n", gmCountLow_ref, gmCountLowFiltered, gmCountLow_ref-gmCountLowFiltered, alpha_lo);
-//	printf("ah: %.2f, b: %.2f, diff: %.2f, alpha: %.2f\r\n", gmCountHigh_ref, gmCountHighFiltered, gmCountHigh_ref-gmCountHighFiltered, alpha_hi);
+	// CSV 유사 형식, 구분자 ", " 통일.
+	//  Seq      : 순번
+	//  Range    : 현재 레인지 (L/H) - 하이/로우 전환 표시
+	//  CntRawL  : LOW  GM관 원시(미필터) 카운트  <- gmCountLow (uint32)
+	//  CntL     : LOW  GM관 EMA 필터 카운트       <- gmCountLowFiltered (float)
+	//  Lo       : LOW  환산 선량률                <- gmDoseLow (float)
+	//  CntRawH  : HIGH GM관 원시(미필터) 카운트  <- gmCountHigh (uint32)
+	//  CntH     : HIGH GM관 EMA 필터 카운트       <- gmCountHighFiltered (float)
+	//  Hi       : HIGH 환산 선량률                <- gmDoseHigh (float)
+	printf("Seq: %lu, Range: %s, CntRawL: %lu, CntL: %.2f, Lo: %.2f, CntRawH: %lu, CntH: %.2f, Hi: %.2f\r\n",
+	       (unsigned long)seq,
+	       range_str,
+	       (unsigned long)gmCountLow,
+	       gmCountLowFiltered,
+	       gmDoseLow,
+	       (unsigned long)gmCountHigh,
+	       gmCountHighFiltered,
+	       gmDoseHigh);
 }//void
 
 void test_gmDoseLow_display()
@@ -1355,11 +1367,9 @@ int main(void)
   MX_SPI4_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
-  /* NOTE: MX_IWDG_Init() must NOT run here. The watchdog has to start only AFTER the
-     long blocking startup (init_display switch-waits, power_on_selftest ~3.5s, EEPROM
-     loads); otherwise it resets during POST -> boot loop. It is started later, just
-     before the main loop. If CubeMX regenerates this block and re-adds MX_IWDG_Init()
-     here, delete it again. */
+  // MX_IWDG_Init();  // REMOVED: early IWDG start causes POST boot-loop. Watchdog is
+                      // started only before the main loop (see USER CODE BEGIN WHILE).
+                      // CubeMX regen re-inserts this line -> delete it again. See docs/CUBEMX_REGEN_NOTES.md
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
