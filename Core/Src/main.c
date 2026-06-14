@@ -1204,14 +1204,17 @@ void process_dose_ema()
 	if (tau_denom < 0.1F) tau_denom = 0.1F;		// clamp: avoid divide-by-~0 / runaway dose
 	gm_tau_low = gmCountLowFiltered / tau_denom;
 
+	// HIGH 레인지에는 데드타임 보정을 적용하지 않는다(의도된 설계).
+	//   측정범위가 100mSv/h 까지이며, 이 영역은 데드타임 보정이 불필요하다고 판단함.
+	//   따라서 LOW 카운트에만 n/(1-n*TAULOW) 보정을 적용하고, HIGH 는 필터 카운트를 그대로 사용한다.
+
 	/* dose rate (uSv/h) = count * conversion factor.
 	 * LOW  : dead-time-corrected count (gm_tau_low)      x conv_factor_low  (EEPROM, default 0.600)
 	 * HIGH : filtered count (gmCountHighFiltered)        x conv_factor_high (EEPROM, default 48.00)
 	 *   Conversion Factor LND7128  = 0.600
 	 *   Conversion Factor LND71631 = 48.00
 	 */
-	// conv_factor_low / conv_factor_high are loaded from EEPROM (교정값). 테스트용
-	// 강제 덮어쓰기(conv_factor_low = 6.0F)는 제거됨 — 정상 교정값을 그대로 사용.
+	// conv_factor_low / conv_factor_high : EEPROM 교정값을 그대로 사용한다(정상 운용).
 	gmDoseLow 	= gm_tau_low  * conv_factor_low;
 	gmDoseHigh 	= gmCountHighFiltered * conv_factor_high;
 
