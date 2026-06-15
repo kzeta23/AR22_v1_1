@@ -36,6 +36,15 @@
 #include "../../MyLib/MOVING_AVERAGE/moving_average.h"
 #include "../../MyLib/EEPROM_I2C/STM32_EEPROM_I2C.h"		//for 24C01 (I2C EEPROM)
 
+/* ── Ethernet data logging (W5500 TCP server, 추가 기능) ────────────────────
+ * 1로 두면 W5500 이더넷 선량 로깅을 활성화한다. 0으로 두면 관련 호출이 전부
+ * 컴파일에서 빠져 검증된 베이스 동작으로 즉시 복원된다(독립 추가/롤백용 스위치).
+ * 라이브러리는 MyLib/W5500/ 에 자기완결적으로 존재(포트층이 CS/RST/SPI 자체 처리). */
+#define ETH_LOG_ENABLE 1
+#if ETH_LOG_ENABLE
+  #include "../../MyLib/W5500/net_app.h"		// net_app_init/poll/send_dose
+#endif
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1412,6 +1421,13 @@ int main(void)
   load_alarm_data();
   load_cf_data();
 
+#if ETH_LOG_ENABLE
+  /* W5500 부팅 + 정적 IP(192.168.1.22:15022) + 링크 대기(최대 ~5s, 블로킹).
+   * ★ 반드시 MX_IWDG_Init() 앞에서 호출한다. 링크 대기가 워치독(~4s)보다 길어
+   *   IWDG 이후에 두면 POST 부트루프가 발생한다(긴 블로킹 startup은 워치독 전에). */
+  net_app_init();
+#endif
+
   /* Start the independent watchdog AFTER all blocking startup (POST, EEPROM load,
      and the switch-hold waits in init_display). ~4 s timeout; kicked each loop. */
   __HAL_DBGMCU_FREEZE_IWDG();		// keep IWDG halted while debugging (no reset on breakpoints)
@@ -1431,6 +1447,17 @@ int main(void)
   		process_range_check();
   		process_dose_ema();
   		data_monitor_usb();			// data transfer to a SmartPhone
+
+#if ETH_LOG_ENABLE
+  		// 2초마다 현재 레인지 선량을 접속 클라이언트에 JSON 전송(미접속 시 무동작).
+  		static uint8_t net_2s_cnt = 0;					// 1s tick 2회 = 2s
+  		if(++net_2s_cnt >= 2)
+  		{
+  			net_2s_cnt = 0;
+  			float dose = (rangeStatus == RANGE_LOW) ? gmDoseLow : gmDoseHigh;	// 현재 레인지 선량
+  			net_app_send_dose(dose);
+  		}//if
+#endif
   	}//if
 
   	if(tick_0_2sec == 1)						//every 0.2s
@@ -1441,6 +1468,10 @@ int main(void)
   		// display path are actually progressing. If ticks stop or display hangs, this
   		// block stops running -> IWDG (~4s) resets the unit. (200ms period << 4s timeout)
   		HAL_IWDG_Refresh(&hiwdg);
+
+#if ETH_LOG_ENABLE
+  		net_app_poll();				// W5500 TCP 서버 소켓 상태머신 (접속/수신/해제 처리)
+#endif
 
   		if(flag_display_test == 1)			// select display test
   		{

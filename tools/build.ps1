@@ -21,7 +21,8 @@ $startup = "$root\Core\Startup\startup_stm32f446vetx.s"
 
 # --- Flags (match .cproject) ---
 $cpu  = @("-mcpu=cortex-m4","-mfpu=fpv4-sp-d16","-mfloat-abi=hard","-mthumb")
-$defs = @("-DUSE_HAL_DRIVER","-DSTM32F446xx","-DDEBUG")
+$defs = @("-DUSE_HAL_DRIVER","-DSTM32F446xx","-DDEBUG",
+          "-D_WIZCHIP_=W5500")   # WIZnet ioLibrary chip select (default would be W6300, unbundled)
 $inc  = @(
   "-I$root\Core\Inc",
   "-I$root\Drivers\STM32F4xx_HAL_Driver\Inc",
@@ -31,7 +32,11 @@ $inc  = @(
   "-I$root\MyLib",
   "-I$root\MyLib\SSD1322_OLED_lib_NB",
   "-I$root\MyLib\MOVING_AVERAGE",
-  "-I$root\MyLib\EEPROM_I2C"
+  "-I$root\MyLib\EEPROM_I2C",
+  # W5500 Ethernet (data-logging TCP server): net_app + WIZnet ioLibrary headers
+  "-I$root\MyLib\W5500",
+  "-I$root\MyLib\W5500\ioLibrary",
+  "-I$root\MyLib\W5500\ioLibrary\W5500"
 )
 $cflags = $cpu + $defs + $inc + @("-O0","-g3","-ffunction-sections","-fdata-sections","-std=gnu11","-Wall")
 $lflags = $cpu + @(
