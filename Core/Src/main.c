@@ -590,12 +590,18 @@ void power_on_selftest()
 
 	HAL_Delay(1500);									// hold result screen for the operator
 
-	// 5) Restore : all indicators off, clear display
+	// 5) Restore : all indicators off, then show a boot wait screen.
+	//    Previously the panel was cleared to black here, leaving it dark through the
+	//    post-POST blocking init that follows (HAL_Delay 1s + EEPROM load + W5500
+	//    link wait up to ~5s). Instead leave "Initializing ..." up; it persists until
+	//    the main loop draws the first dose frame, so the screen is never blank.
 	HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(LAMP_RED_GPIO_Port, LAMP_RED_Pin, GPIO_PIN_RESET);
 	buzzer_off();
 	fill_buffer(tx_buf, 0);
+	select_font(&FreeSans8pt7b);
+	draw_text(tx_buf, "Initializing ...", 0, 36, 15);	// boot wait screen (not blank)
 	send_buffer_to_OLED(tx_buf, 0, 0);
 }//void
 
@@ -1422,6 +1428,13 @@ int main(void)
   load_cf_data();
 
 #if ETH_LOG_ENABLE
+  /* 부팅 대기 화면을 "Network ..." 로 갱신 — 바로 아래 net_app_init()의 링크
+   * 대기(최대 ~5s 블로킹) 동안 화면이 검게 비지 않고 진행 상태를 보이게 한다. */
+  fill_buffer(tx_buf, 0);
+  select_font(&FreeSans8pt7b);
+  draw_text(tx_buf, "Network ...", 0, 36, 15);
+  send_buffer_to_OLED(tx_buf, 0, 0);
+
   /* W5500 부팅 + 정적 IP(192.168.1.22:15022) + 링크 대기(최대 ~5s, 블로킹).
    * ★ 반드시 MX_IWDG_Init() 앞에서 호출한다. 링크 대기가 워치독(~4s)보다 길어
    *   IWDG 이후에 두면 POST 부트루프가 발생한다(긴 블로킹 startup은 워치독 전에). */
