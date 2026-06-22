@@ -189,6 +189,12 @@ volatile bool flag_SW_UP = 0;
 volatile bool flag_SW_DOWN = 0;
 volatile bool flag_SW_ACK = 0;
 
+// Software debounce window for the push-buttons (active-low, EXTI falling edge).
+// A single press bounces into several falling edges over a few ms; edges arriving
+// within this window after the last accepted edge (same button) are ignored.
+// 200ms : longer than mechanical bounce, shorter than deliberate consecutive taps.
+#define SW_DEBOUNCE_MS  200U
+
 //about time tick (written in HAL_TIM_PeriodElapsedCallback ISR -> volatile)
 volatile bool tick_0_1sec = 0;
 volatile bool tick_0_2sec = 0;
@@ -2161,19 +2167,27 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+	// Per-button time of last accepted edge (ms). Reading HAL_GetTick() in the ISR is
+	// safe: it is the 1ms SysTick counter. Accept an edge only if at least
+	// SW_DEBOUNCE_MS has elapsed since this button's last accepted edge; otherwise the
+	// edge is contact bounce from the same press and is dropped. Unsigned subtraction
+	// makes the comparison wrap-safe. Fixes UP/DOWN jumping 2~3 per press.
+	static uint32_t t_set = 0, t_shift = 0, t_up = 0, t_down = 0;
+	uint32_t now = HAL_GetTick();
+
 	switch(GPIO_Pin)
 	{
 	case SW_SET_Pin :
-		flag_SW_SET = 1;
+		if(now - t_set >= SW_DEBOUNCE_MS)   { t_set = now;   flag_SW_SET = 1; }
 		break;
 	case SW_SHIFT_Pin :
-		flag_SW_SHIFT = 1;
+		if(now - t_shift >= SW_DEBOUNCE_MS) { t_shift = now; flag_SW_SHIFT = 1; }
 		break;
 	case SW_UP_Pin :
-		flag_SW_UP = 1;
+		if(now - t_up >= SW_DEBOUNCE_MS)    { t_up = now;    flag_SW_UP = 1; }
 		break;
 	case SW_DOWN_Pin :
-		flag_SW_DOWN = 1;
+		if(now - t_down >= SW_DEBOUNCE_MS)  { t_down = now;  flag_SW_DOWN = 1; }
 		break;
 	// SW_ACK_Pin removed : not assigned in current .ioc
 	default:
