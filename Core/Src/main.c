@@ -129,6 +129,15 @@ float alpha_hi_ref = 0.4;						// ema high ref parameter
 #define GM_HIGH_CONV_FACTOR 48.000F			//Conversion Factor LND71631 = 48.00  (0.048mSv/h/cps, 240418 KEARI)
 #define DEFAULT_ALARM_THRESHOLD 10			//uSv/h, applied when EEPROM alarm data is invalid/unreadable
 
+// C/F valid range (acceptance limits) - single source of truth for load/save
+// validation and the display, to prevent value drift across the three sites.
+// Values/types match the original literals so comparison behavior is unchanged
+// (Lo: double 0.4/0.8 ; Hi: 32/64 - exact-integer floats). Symmetric ref +-1/3.
+#define CF_LO_MIN  0.4
+#define CF_LO_MAX  0.8
+#define CF_HI_MIN  32.0
+#define CF_HI_MAX  64.0
+
 float conv_factor_low = GM_LOW_CONV_FACTOR;
 float conv_factor_high = GM_HIGH_CONV_FACTOR;
 uint8_t t_conv_factor_low = 0;
@@ -356,13 +365,13 @@ void load_cf_data()
 	conv_factor_low  =  (float)t_conv_factor_low  * 0.01;	// 60 -> 0.60
 	conv_factor_high =  (float)t_conv_factor_high * 1;			// 48 -> 48
 
-	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_low < 0.4 || conv_factor_low > 0.8)
+	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_low < CF_LO_MIN || conv_factor_low > CF_LO_MAX)
 	{
 		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt (read fail or out of range)
 	}//if
 
-	// Hi valid range: ref 48 +-1/3 (32~64), symmetric like Lo (0.40~0.80)
-	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_high < 32 || conv_factor_high > 64)
+	// Hi valid range: see CF_HI_MIN/MAX (symmetric ref +-1/3, like Lo CF_LO_*)
+	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_high < CF_HI_MIN || conv_factor_high > CF_HI_MAX)
 	{
 		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt (read fail or out of range)
 	}//if
@@ -384,13 +393,13 @@ void save_cf_data()
 	conv_factor_low  =  (float)t_conv_factor_low  * 0.01;	// 60 -> 0.60
 	conv_factor_high =  (float)t_conv_factor_high * 1;			// 48 -> 48
 
-	if(conv_factor_low < 0.4 || conv_factor_low > 0.8)
+	if(conv_factor_low < CF_LO_MIN || conv_factor_low > CF_LO_MAX)
 	{
 		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt
 	}//if
 
-	// Hi valid range: ref 48 +-1/3 (32~64), symmetric like Lo (0.40~0.80)
-	if(conv_factor_high < 32 || conv_factor_high > 64)
+	// Hi valid range: see CF_HI_MIN/MAX (symmetric ref +-1/3, like Lo CF_LO_*)
+	if(conv_factor_high < CF_HI_MIN || conv_factor_high > CF_HI_MAX)
 	{
 		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt
 	}//if
@@ -903,9 +912,9 @@ void display_cf()	// display Radiation value
 			sprintf (buffer, "0.%2d", t_conv_factor_low);	// not flashing
 			draw_text(tx_buf, buffer, 50, 14, 15);
 		}//else
-		sprintf (buffer, "(ref:0.60, 0.40~0.80)");										// display lo reference + valid range
+		sprintf (buffer, "(ref:0.60, %.2f~%.2f)", CF_LO_MIN, CF_LO_MAX);				// lo reference + valid range (from macros)
 		draw_text(tx_buf, buffer, 90, 14, 15);
-		sprintf (buffer, "(ref:48.0, 32.0~64.0)");									// display hi reference + valid range
+		sprintf (buffer, "(ref:48.0, %.1f~%.1f)", CF_HI_MIN, CF_HI_MAX);				// hi reference + valid range (from macros)
 		draw_text(tx_buf, buffer, 90, 28, 15);
 	}//if
 
