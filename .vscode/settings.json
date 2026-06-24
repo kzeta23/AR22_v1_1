@@ -1,0 +1,7 @@
+{
+  // 이 워크스페이스에서만 Microsoft C/C++(cpptools) IntelliSense를 켠다.
+  // 전역 설정은 "disabled"(ST clangd 사용 전제)지만, 이 프로젝트는 clangd 바이너리가
+  // 설치돼 있지 않아 호버/정의 정보가 전혀 안 떴다. cpptools는 별도 바이너리 없이
+  // c_cpp_properties.json(includePath/defines/compilerPath)만으로 동작한다.
+  "C_Cpp.intelliSenseEngine": "default"
+}

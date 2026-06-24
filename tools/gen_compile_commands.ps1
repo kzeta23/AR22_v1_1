@@ -24,13 +24,18 @@ $incRel = @(
   "MyLib/SSD1322_OLED_lib_NB/Fonts",
   "MyLib/SSD1322_OLED_lib_NB/Bitmap",
   "MyLib/MOVING_AVERAGE",
-  "MyLib/EEPROM_I2C"
+  "MyLib/EEPROM_I2C",
+  # W5500 Ethernet (data-logging TCP server): net_app + WIZnet ioLibrary headers
+  "MyLib/W5500",
+  "MyLib/W5500/ioLibrary",
+  "MyLib/W5500/ioLibrary/W5500"
 )
 $inc = $incRel | ForEach-Object { "-I$rootF/$_" }
 
 $flags = @(
   "-mcpu=cortex-m4","-mfpu=fpv4-sp-d16","-mfloat-abi=hard","-mthumb",
-  "-DUSE_HAL_DRIVER","-DSTM32F446xx","-DDEBUG","-std=gnu11"
+  # _WIZCHIP_=W5500: WIZnet ioLibrary chip select (must match build.ps1; default would be W6300)
+  "-DUSE_HAL_DRIVER","-DSTM32F446xx","-DDEBUG","-D_WIZCHIP_=W5500","-std=gnu11"
 ) + $inc
 
 $entries = foreach ($s in $srcs) {

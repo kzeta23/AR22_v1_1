@@ -14,12 +14,16 @@
         "${workspaceFolder}/MyLib/SSD1322_OLED_lib_NB/Fonts",
         "${workspaceFolder}/MyLib/SSD1322_OLED_lib_NB/Bitmap",
         "${workspaceFolder}/MyLib/MOVING_AVERAGE",
-        "${workspaceFolder}/MyLib/EEPROM_I2C"
+        "${workspaceFolder}/MyLib/EEPROM_I2C",
+        "${workspaceFolder}/MyLib/W5500",
+        "${workspaceFolder}/MyLib/W5500/ioLibrary",
+        "${workspaceFolder}/MyLib/W5500/ioLibrary/W5500"
       ],
       "defines": [
         "USE_HAL_DRIVER",
         "STM32F446xx",
-        "DEBUG"
+        "DEBUG",
+        "_WIZCHIP_=W5500"
       ],
       "compilerPath": "C:/Program Files (x86)/Arm/GNU Toolchain mingw-w64-i686-arm-none-eabi/bin/arm-none-eabi-gcc.exe",
       "compilerArgs": [
