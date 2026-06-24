@@ -361,7 +361,8 @@ void load_cf_data()
 		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt (read fail or out of range)
 	}//if
 
-	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_high < 34 || conv_factor_high > 66)
+	// Hi valid range: ref 48 +-1/3 (32~64), symmetric like Lo (0.40~0.80)
+	if(rd != EEPROM_STATUS_COMPLETE || conv_factor_high < 32 || conv_factor_high > 64)
 	{
 		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt (read fail or out of range)
 	}//if
@@ -388,7 +389,8 @@ void save_cf_data()
 		conv_factor_low = GM_LOW_CONV_FACTOR;		 // apply defualt
 	}//if
 
-	if(conv_factor_high < 34 || conv_factor_high > 66)
+	// Hi valid range: ref 48 +-1/3 (32~64), symmetric like Lo (0.40~0.80)
+	if(conv_factor_high < 32 || conv_factor_high > 64)
 	{
 		conv_factor_high = GM_HIGH_CONV_FACTOR;		// apply defualt
 	}//if
@@ -901,9 +903,9 @@ void display_cf()	// display Radiation value
 			sprintf (buffer, "0.%2d", t_conv_factor_low);	// not flashing
 			draw_text(tx_buf, buffer, 50, 14, 15);
 		}//else
-		sprintf (buffer, "(ref:0.60)");														// display lo reference
+		sprintf (buffer, "(ref:0.60, 0.40~0.80)");										// display lo reference + valid range
 		draw_text(tx_buf, buffer, 90, 14, 15);
-		sprintf (buffer, "(ref:48.0)");															// display hi reference
+		sprintf (buffer, "(ref:48.0, 32.0~64.0)");									// display hi reference + valid range
 		draw_text(tx_buf, buffer, 90, 28, 15);
 	}//if
 
