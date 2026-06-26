@@ -896,7 +896,7 @@ void display_cf()	// display Radiation value
 		{
 			if((flag_display_cf_blanking ^= 1) == 1) // flashing select position digit
 			{
-				sprintf (buffer, "0.%2d", t_conv_factor_low);	// display 0.%2d -> 0.60
+				sprintf (buffer, "0.%02d", t_conv_factor_low);	// zero-pad: 60->"0.60", 5->"0.05" (avoid "0. 5")
 				draw_text(tx_buf, buffer, 50, 14, 15);
 			}//if
 			sprintf (buffer, "%2d.0", t_conv_factor_high);	// not flashing
@@ -909,13 +909,36 @@ void display_cf()	// display Radiation value
 				sprintf (buffer, "%2d.0", t_conv_factor_high);
 				draw_text(tx_buf, buffer, 50, 28, 15);
 			}//if
-			sprintf (buffer, "0.%2d", t_conv_factor_low);	// not flashing
+			sprintf (buffer, "0.%02d", t_conv_factor_low);	// not flashing (zero-pad, see above)
 			draw_text(tx_buf, buffer, 50, 14, 15);
 		}//else
 		sprintf (buffer, "(ref:0.60, %.2f~%.2f)", CF_LO_MIN, CF_LO_MAX);				// lo reference + valid range (from macros)
 		draw_text(tx_buf, buffer, 90, 14, 15);
 		sprintf (buffer, "(ref:48.0, %.1f~%.1f)", CF_HI_MIN, CF_HI_MAX);				// hi reference + valid range (from macros)
 		draw_text(tx_buf, buffer, 90, 28, 15);
+
+		// 3rd line warning: if the value being edited is outside the valid range,
+		// alert the user. Display-only; logic/values unchanged. The value is converted
+		// the same way as load/save (Lo x0.01, Hi x1) and checked against the same
+		// CF_*_MIN/MAX macros, so this stays consistent with the save-time validation.
+		// Out-of-range values are still accepted into t_conv_* here, but on save they
+		// revert to the default (see save_cf_data) - this message warns before that.
+		float v_lo = t_conv_factor_low  * 0.01f;	// 60 -> 0.60
+		float v_hi = t_conv_factor_high * 1.0f;		// 48 -> 48
+		// Flash in sync with the editing digit: flag_display_cf_blanking was already
+		// toggled once this frame (in the lo/hi block above), so gating the draw on ==1
+		// blinks the warning on alternating refreshes without adding new state.
+		if((v_lo < CF_LO_MIN || v_lo > CF_LO_MAX ||
+		    v_hi < CF_HI_MIN || v_hi > CF_HI_MAX) && flag_display_cf_blanking == 1)
+		{
+			sprintf (buffer, "out of range !");
+			draw_text(tx_buf, buffer, 0, 42, 7);	// 3rd line (y=42), brightness 7 (alert level, see DISPLAY_SETTINGS.md)
+		}//if
+
+		// 4th line guide: how to commit the edited C/F. Static (no flashing).
+		// Font is ASCII-only (FreeSans8pt7b covers 0x20-0x7E), so use English text.
+		sprintf (buffer, "Press SET to save");
+		draw_text(tx_buf, buffer, 0, 56, 7);	// 4th line (y=56), brightness 7 (secondary guide)
 	}//if
 
 	// send a frame buffer to the display
@@ -991,6 +1014,7 @@ void process_switch()
 		{
 			if(flag_display_cf_lo_hi == 0)
 			{
+				// increment Lo with wrap 99->0 (post-inc: test old value, then ++; if old==99 force 0)
 				if(t_conv_factor_low++ >= 99)
 				{
 					t_conv_factor_low = 0;
@@ -998,6 +1022,7 @@ void process_switch()
 			}//if
 			else
 			{
+				// increment Hi with wrap 99->0 (same post-inc pattern as Lo)
 				if(t_conv_factor_high++ >= 99)
 				{
 					t_conv_factor_high = 0;
@@ -1024,6 +1049,8 @@ void process_switch()
 		{
 			if(flag_display_cf_lo_hi == 0)
 			{
+				// decrement Lo with wrap 0->99 (post-dec: test old value, then --; if old==0 force 99,
+				// which also masks the uint8 underflow 0->255)
 				if(t_conv_factor_low-- <= 0)
 				{
 					t_conv_factor_low = 99;
@@ -1031,6 +1058,7 @@ void process_switch()
 			}//if
 			else
 			{
+				// decrement Hi with wrap 0->99 (same post-dec pattern as Lo)
 				if(t_conv_factor_high-- <= 0)
 				{
 					t_conv_factor_high = 99;
